@@ -71,7 +71,7 @@ export async function analyzeHotTopicsV2(hours: number = 48): Promise<HotTopic[]
   }).join('\n')
 
   // 3. 构造 Prompt
-  const prompt = `你是一个新闻分析专家，请分析以下新闻标题，找出48小时内的热点话题。
+  const prompt = `你是一个新闻分析专家，请分析以下新闻标题，找出最近${hours}小时内的热点话题。
 
 规则：
 1. 只返回被多个来源（≥2个）报道的话题

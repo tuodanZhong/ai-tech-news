@@ -15,7 +15,7 @@ export async function GET() {
     const rssResults = await fetchAllFeeds()
 
     // 2. 抓取 Bloomberg（使用网页抓取）
-    let bloombergResult = { feed: 'Bloomberg Technology', count: 0, error: null }
+    let bloombergResult = { feed: 'Bloomberg Technology', count: 0, error: null as string | null }
     try {
       const bloombergResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/scrape-bloomberg`, {
         method: 'POST'
@@ -36,7 +36,7 @@ export async function GET() {
     const allResults = [...rssResults, bloombergResult]
 
     // 4. 去重处理
-    let deduplicateResult = { deleted: 0, error: null }
+    let deduplicateResult = { deleted: 0, error: null as string | null }
     try {
       const deduplicateResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/deduplicate`, {
         method: 'POST'
@@ -54,7 +54,7 @@ export async function GET() {
     }
 
     // 5. 智能过滤不相关内容
-    let filterResult = { total: 0, filtered: 0, error: null }
+    let filterResult = { total: 0, filtered: 0, error: null as string | null }
     try {
       // 获取所有新采集的文章
       const afterArticles = await prisma.article.findMany({

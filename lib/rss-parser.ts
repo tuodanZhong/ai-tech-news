@@ -26,7 +26,6 @@ export const RSS_FEEDS: RSSFeed[] = [
   { name: '36氪', url: 'https://36kr.com/feed', category: '综合科技' },
   { name: '钛媒体', url: 'https://www.tmtpost.com/rss.xml', category: '综合科技' },
   { name: 'InfoQ中国', url: 'https://www.infoq.cn/feed', category: '综合科技' },
-  { name: 'CSDN', url: 'https://blog.csdn.net/rss/home', category: '综合科技' },
 
   // AI 专题
   { name: 'MIT Technology Review AI', url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed', category: 'AI' },
@@ -49,6 +48,9 @@ export async function fetchRSSFeed(feedUrl: string, sourceName: string, category
     const articles = []
 
     for (const item of feed.items) {
+      // 限制每个 RSS 源最多 50 篇
+      if (articles.length >= 50) break
+
       if (!item.link) continue
 
       const existingArticle = await prisma.article.findUnique({

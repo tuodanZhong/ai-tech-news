@@ -147,21 +147,28 @@ export default function Home() {
     setFetching(true)
     setFetchResult('')
     try {
-      const res = await fetch('/api/fetch-rss')
+      // 调用定时任务 API，执行完整流程：采集 → 翻译 → 热点分析
+      const res = await fetch('/api/cron-job')
       const data = await res.json()
 
       if (data.success) {
-        const total = data.results.reduce((sum: number, r: any) => sum + r.count, 0)
-        setFetchResult(`采集成功！共采集 ${total} 篇文章${data.deduplicated ? `，去重 ${data.deduplicated} 篇` : ''}`)
-        // 刷新文章列表和采集时间
+        const summary = data.summary
+        setFetchResult(
+          `执行成功！采集 ${summary.articlesCollected} 篇，` +
+          `翻译 ${summary.articlesTranslated} 篇，` +
+          `48h热点 ${summary.hotTopics48h} 个，` +
+          `24h热点 ${summary.hotTopics24h} 个`
+        )
+        // 刷新所有数据
         fetchArticles()
         fetchSources()
         fetchLastFetchTime()
+        fetchHotTopics() // 刷新热点话题
       } else {
-        setFetchResult('采集失败：' + data.error)
+        setFetchResult('执行失败：' + data.error)
       }
     } catch (error) {
-      setFetchResult('采集失败：' + (error instanceof Error ? error.message : '未知错误'))
+      setFetchResult('执行失败：' + (error instanceof Error ? error.message : '未知错误'))
     } finally {
       setFetching(false)
     }
@@ -235,7 +242,7 @@ export default function Home() {
                 disabled={fetching}
                 className="px-4 py-1.5 bg-white text-slate-700 text-xs font-medium rounded hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
-                {fetching ? '采集中...' : '采集新闻'}
+                {fetching ? '执行中...' : '执行定时任务'}
               </button>
             </div>
           </div>
