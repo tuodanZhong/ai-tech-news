@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Article {
+  id            String   @id @default(uuid())
+  title         String
+  titleOriginal String?
+  description   String?
+  descriptionOriginal String?
+  content       String?
+  contentOriginal String?
+  link          String   @unique
+  pubDate       DateTime
+  source        String
+  category      String
+  imageUrl      String?
+  trendingScore Float    @default(0)
+  keywords      String?
+  isTranslated  Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([pubDate])
+  @@index([category])
+  @@index([source])
+  @@index([trendingScore])
+  @@index([isTranslated])
+}
+
+model RSSSource {
+  id          String   @id @default(uuid())
+  name        String
+  url         String   @unique
+  category    String
+  isActive    Boolean  @default(true)
+  lastFetched DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model HotTopic {
+  id              String   @id @default(uuid())
+  type            String   // "24h" or "48h"
+  title           String
+  discussionCount Int
+  sources         String   // JSON array of source names
+  articleIds      String   // JSON array of article IDs
+  score           Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([type])
+  @@index([createdAt])
+}
