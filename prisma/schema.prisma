@@ -58,3 +58,15 @@ model HotTopic {
   @@index([type])
   @@index([createdAt])
 }
+
+model FilteredArticle {
+  id          String   @id @default(uuid())
+  link        String   @unique
+  title       String
+  source      String
+  reason      String?  // 过滤原因
+  filteredAt  DateTime @default(now())
+
+  @@index([link])
+  @@index([filteredAt])
+}

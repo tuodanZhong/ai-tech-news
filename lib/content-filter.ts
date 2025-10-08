@@ -30,7 +30,8 @@ export async function filterIrrelevantArticles(articleIds: string[]): Promise<Fi
       id: true,
       title: true,
       titleOriginal: true,
-      source: true
+      source: true,
+      link: true
     }
   })
 
@@ -43,35 +44,64 @@ export async function filterIrrelevantArticles(articleIds: string[]): Promise<Fi
     }
   }
 
+  // 分批处理，每次最多 50 篇
+  const BATCH_SIZE = 50
+  const allRelevantIds: string[] = []
+  const allIrrelevantIds: string[] = []
+
+  for (let i = 0; i < articles.length; i += BATCH_SIZE) {
+    const batch = articles.slice(i, i + BATCH_SIZE)
+    console.log(`[过滤器] 处理第 ${Math.floor(i / BATCH_SIZE) + 1} 批，共 ${batch.length} 篇文章`)
+
+    const result = await filterBatch(batch)
+    allRelevantIds.push(...result.relevantIds)
+    allIrrelevantIds.push(...result.irrelevantIds)
+
+    // 批次之间延迟 1 秒，避免 API 限流
+    if (i + BATCH_SIZE < articles.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+
+  return {
+    relevantIds: allRelevantIds,
+    irrelevantIds: allIrrelevantIds,
+    total: articles.length,
+    filtered: allIrrelevantIds.length
+  }
+}
+
+async function filterBatch(articles: any[]): Promise<{ relevantIds: string[], irrelevantIds: string[] }> {
   // 准备文章列表供 LLM 分析
   const articleList = articles.map((article, index) => ({
     index,
     id: article.id,
     title: article.title || article.titleOriginal || '',
-    source: article.source
+    source: article.source,
+    link: article.link
   }))
 
-  const prompt = `你是一个科技新闻过滤专家。请分析以下新闻标题，筛选出**明确不相关**的内容。
+  const prompt = `你是一个科技新闻过滤专家。请根据**文章主题**判断是否相关，而不是仅看关键词。
 
-**保留标准**（以下任一即保留）：
-- AI/人工智能相关
-- 科技公司/互联网公司相关
-- 互联网产品/服务相关
-- 商业/创业/投资相关
-- 技术/编程/开发相关
-- 数字化/云计算/大数据相关
-- 自然科学研究相关（物理、化学、生物、天文、地质等科学研究）
+**保留标准（满足任一即保留）：**
+- AI/人工智能相关（包括AI产品、AI应用、AI公司）
+- 科技公司/互联网公司的产品、业务、战略、投资
+- 技术、编程、开发相关
+- 科技产品报道（即使提到价格、销售，只要主题是科技产品就保留）
+- 商业投资新闻（科技/互联网领域的投资、并购、股票）
+- 自然科学研究
 
-**必须过滤的内容**（包含以下关键词的文章一律删除）：
-- 电商促销（如"折扣"、"特价"、"限时优惠"、"秒杀"、"满减"）
-- 产品推销（如"购买"、"下单"、"抢购"、"预售"、"开售"）
-- 商品推荐（如"好物推荐"、"种草"、"剁手"、"必买清单"）
-- 电商平台活动（如"双11"、"618"、"黑五"、"年货节"）
+**删除标准（主题必须是以下内容才删除）：**
+- 纯电商促销广告（双11、618、限时秒杀等）
+- 旅游出行数据（客运量、旅客人次、假期出游）
+- 影视娱乐消费（票房、演唱会、综艺）
+- 传统零售、餐饮、时尚（非科技类）
+- 体育、政治、社会新闻
 
-**其他过滤标准**（需同时满足才过滤）：
-- 明确与科技、AI、互联网、商业、自然科学研究无关
-- 纯粹的政治、体育、娱乐、生活类新闻
-- 注意：即使看起来不太相关，但如果涉及科技公司、互联网或科学研究，仍应保留
+**重要：不要因为出现"价格"、"买"、"卖"等词就删除，要看主题！**
+- ✅ "AI产品售价700美金" - 主题是AI产品，保留
+- ✅ "巴菲特减持科技股" - 主题是投资，保留
+- ❌ "飞猪国庆客单价提升" - 主题是旅游消费，删除
 
 新闻列表：
 ${articleList.map(a => `${a.index}. [${a.source}] ${a.title}`).join('\n')}
@@ -80,12 +110,7 @@ ${articleList.map(a => `${a.index}. [${a.source}] ${a.title}`).join('\n')}
 {
   "irrelevant": [需要过滤的文章索引数组],
   "reasoning": "简要说明过滤理由"
-}
-
-注意：
-1. 宁可保守过滤（保留更多），不要过度过滤
-2. 如果不确定，倾向于保留
-3. 只返回**明确不相关**的索引`
+}`
 
   try {
     const response = await fetch('https://api.deepseek.com/chat/completions', {
@@ -140,12 +165,38 @@ ${articleList.map(a => `${a.index}. [${a.source}] ${a.title}`).join('\n')}
     console.log(`[过滤器] DeepSeek 分析结果: ${result.reasoning}`)
     console.log(`[过滤器] 标记为不相关的文章数: ${irrelevantIndexes.length}`)
 
+    // 输出被过滤的文章标题，便于调试
+    if (irrelevantIndexes.length > 0) {
+      console.log('[过滤器] 被过滤的文章:')
+      irrelevantIndexes.forEach((idx: number) => {
+        const article = articleList[idx]
+        if (article) {
+          console.log(`  - [${article.source}] ${article.title}`)
+        }
+      })
+    }
+
     // 分离相关和不相关的文章ID
     const irrelevantIds = irrelevantIndexes.map((idx: number) => articleList[idx]?.id).filter(Boolean)
     const relevantIds = articles.map(a => a.id).filter(id => !irrelevantIds.includes(id))
 
-    // 删除不相关的文章
+    // 删除不相关的文章，并记录到过滤历史表
     if (irrelevantIds.length > 0) {
+      // 获取被过滤文章的详细信息
+      const irrelevantArticles = articles.filter(a => irrelevantIds.includes(a.id))
+
+      // 批量插入到过滤历史表（使用 createMany，跳过已存在的）
+      await prisma.filteredArticle.createMany({
+        data: irrelevantArticles.map(article => ({
+          link: article.link || '',
+          title: article.title || article.titleOriginal || '无标题',
+          source: article.source,
+          reason: result.reasoning || '智能过滤'
+        })),
+        skipDuplicates: true // 如果link已存在，跳过
+      })
+
+      // 删除不相关的文章
       await prisma.article.deleteMany({
         where: {
           id: {
@@ -153,24 +204,20 @@ ${articleList.map(a => `${a.index}. [${a.source}] ${a.title}`).join('\n')}
           }
         }
       })
-      console.log(`[过滤器] 已删除 ${irrelevantIds.length} 篇不相关文章`)
+      console.log(`[过滤器] 已删除 ${irrelevantIds.length} 篇不相关文章，并记录到过滤历史`)
     }
 
     return {
       relevantIds,
-      irrelevantIds,
-      total: articles.length,
-      filtered: irrelevantIds.length
+      irrelevantIds
     }
 
   } catch (error) {
-    console.error('[过滤器] 过滤过程出错:', error)
+    console.error('[过滤器] 批次过滤出错:', error)
     // 出错时保留所有文章
     return {
-      relevantIds: articleIds,
-      irrelevantIds: [],
-      total: articles.length,
-      filtered: 0
+      relevantIds: articles.map(a => a.id),
+      irrelevantIds: []
     }
   }
 }

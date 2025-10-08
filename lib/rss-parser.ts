@@ -2,7 +2,12 @@ import Parser from 'rss-parser'
 import { prisma } from './db'
 import { translateToChinese } from './translator'
 
-const parser = new Parser()
+const parser = new Parser({
+  timeout: 5000, // 5秒超时
+  requestOptions: {
+    timeout: 5000
+  }
+})
 
 export interface RSSFeed {
   name: string
@@ -45,42 +50,78 @@ export const RSS_FEEDS: RSSFeed[] = [
 export async function fetchRSSFeed(feedUrl: string, sourceName: string, category: string) {
   try {
     const feed = await parser.parseURL(feedUrl)
-    const articles = []
+    const articles: any[] = []
 
-    for (const item of feed.items) {
-      // 限制每个 RSS 源最多 50 篇
-      if (articles.length >= 50) break
+    // 限制每个 RSS 源最多 50 篇
+    const limitedItems = feed.items.slice(0, 50)
 
+    // 批量查询：收集所有链接并一次性查询数据库
+    const links = limitedItems
+      .map(item => item.link)
+      .filter(Boolean) as string[]
+
+    if (links.length === 0) return articles
+
+    // 查询已存在的文章
+    const existingArticles = await prisma.article.findMany({
+      where: { link: { in: links } },
+      select: { link: true }
+    })
+
+    // 查询过滤历史中的文章（曾经被过滤过的）
+    const filteredArticles = await prisma.filteredArticle.findMany({
+      where: { link: { in: links } },
+      select: { link: true }
+    })
+
+    const existingLinks = new Set(existingArticles.map(a => a.link))
+    const filteredLinks = new Set(filteredArticles.map(a => a.link))
+
+    // 过滤出新文章并批量创建
+    for (const item of limitedItems) {
       if (!item.link) continue
 
-      const existingArticle = await prisma.article.findUnique({
-        where: { link: item.link }
-      })
+      // 使用 Set 快速判断是否已存在
+      if (existingLinks.has(item.link)) continue
 
-      if (existingArticle) continue
+      // 检查是否在过滤历史中（曾经被过滤过）
+      if (filteredLinks.has(item.link)) {
+        console.log(`[RSS] 跳过已过滤文章: ${item.link}`)
+        continue
+      }
 
       // 只保存标题，不保存简介和内容
       const titleOriginal = item.title || '无标题'
 
-      // 先不翻译，保存原文，标记为未翻译
-      const article = await prisma.article.create({
-        data: {
-          title: titleOriginal,
-          titleOriginal,
-          description: null,
-          descriptionOriginal: null,
-          content: null,
-          contentOriginal: null,
-          link: item.link,
-          pubDate: item.pubDate ? new Date(item.pubDate) : new Date(),
-          source: sourceName,
-          category: category,
-          imageUrl: item.enclosure?.url || null,
-          isTranslated: false,
-        }
-      })
+      try {
+        // 先不翻译，保存原文，标记为未翻译
+        const article = await prisma.article.create({
+          data: {
+            title: titleOriginal,
+            titleOriginal,
+            description: null,
+            descriptionOriginal: null,
+            content: null,
+            contentOriginal: null,
+            link: item.link,
+            pubDate: item.pubDate ? new Date(item.pubDate) : new Date(),
+            source: sourceName,
+            category: category,
+            imageUrl: item.enclosure?.url || null,
+            isTranslated: false,
+          }
+        })
 
-      articles.push(article)
+        articles.push(article)
+      } catch (createError: any) {
+        // 如果是唯一约束错误，跳过该文章
+        if (createError.code === 'P2002') {
+          console.log(`Article already exists, skipping: ${item.link}`)
+          continue
+        }
+        // 其他错误继续抛出
+        throw createError
+      }
     }
 
     // 更新 RSS 源的最后抓取时间
@@ -103,12 +144,13 @@ export async function fetchRSSFeed(feedUrl: string, sourceName: string, category
 }
 
 export async function fetchAllFeeds() {
-  const results = []
-
-  for (const feed of RSS_FEEDS) {
-    const articles = await fetchRSSFeed(feed.url, feed.name, feed.category)
-    results.push({ feed: feed.name, count: articles.length })
-  }
+  // 并行抓取所有 RSS 源，提升性能
+  const results = await Promise.all(
+    RSS_FEEDS.map(async (feed) => {
+      const articles = await fetchRSSFeed(feed.url, feed.name, feed.category)
+      return { feed: feed.name, count: articles.length }
+    })
+  )
 
   return results
 }

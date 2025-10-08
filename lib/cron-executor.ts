@@ -32,7 +32,12 @@ export async function executeCronJob(): Promise<CronJobResult> {
         pubDate: { lt: sevenDaysAgo }
       }
     })
-    console.log(`[Cron Executor] ✓ 清理完成: 删除 ${deletedArticles.count} 篇7天前的文章`)
+    const deletedFiltered = await prisma.filteredArticle.deleteMany({
+      where: {
+        filteredAt: { lt: sevenDaysAgo }
+      }
+    })
+    console.log(`[Cron Executor] ✓ 清理完成: 删除 ${deletedArticles.count} 篇7天前的文章, ${deletedFiltered.count} 条过滤历史`)
 
     // 1. 采集新闻
     console.log('[Cron Executor] 步骤 1/4: 采集新闻')
@@ -63,7 +68,7 @@ export async function executeCronJob(): Promise<CronJobResult> {
       console.log(`[Cron Executor] ✓ 过滤完成: 保留 ${filterData.relevantIds.length} 篇, 删除 ${filteredCount} 篇`)
     }
 
-    // 3. 翻译新闻
+    // 3. 翻译新闻（并发翻译优化）
     console.log('[Cron Executor] 步骤 3/4: 翻译新闻')
     const untranslatedArticles = await prisma.article.findMany({
       where: {
@@ -74,34 +79,55 @@ export async function executeCronJob(): Promise<CronJobResult> {
       }
     })
 
+    // 并发翻译，每次同时处理 2 篇（避免超过腾讯云 API 每秒 5 次的限制）
+    const CONCURRENT_LIMIT = 2
     let translatedCount = 0
-    for (const article of untranslatedArticles) {
-      try {
-        const titleText = article.titleOriginal || article.title
 
-        if (isChinese(titleText)) {
-          await prisma.article.update({
-            where: { id: article.id },
-            data: {
-              title: titleText,
-              isTranslated: true
+    // 将文章分组
+    const chunks: any[][] = []
+    for (let i = 0; i < untranslatedArticles.length; i += CONCURRENT_LIMIT) {
+      chunks.push(untranslatedArticles.slice(i, i + CONCURRENT_LIMIT))
+    }
+
+    for (const chunk of chunks) {
+      const results = await Promise.allSettled(
+        chunk.map(async (article) => {
+          try {
+            const titleText = article.titleOriginal || article.title
+
+            if (isChinese(titleText)) {
+              await prisma.article.update({
+                where: { id: article.id },
+                data: {
+                  title: titleText,
+                  isTranslated: true
+                }
+              })
+              return { success: true }
             }
-          })
-          translatedCount++
-          continue
-        }
 
-        const title = await translateToChinese(titleText)
-        await prisma.article.update({
-          where: { id: article.id },
-          data: {
-            title,
-            isTranslated: true
+            const title = await translateToChinese(titleText)
+            await prisma.article.update({
+              where: { id: article.id },
+              data: {
+                title,
+                isTranslated: true
+              }
+            })
+            return { success: true }
+          } catch (error) {
+            console.error(`[Cron Executor] 翻译文章 ${article.id} 失败:`, error)
+            return { success: false }
           }
         })
-        translatedCount++
-      } catch (error) {
-        console.error(`[Cron Executor] 翻译文章 ${article.id} 失败:`, error)
+      )
+
+      // 统计成功数量
+      translatedCount += results.filter(r => r.status === 'fulfilled' && r.value.success).length
+
+      // 每批次之间延迟 500ms，避免触发限流（每秒最多 5 次）
+      if (chunks.indexOf(chunk) < chunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500))
       }
     }
     console.log(`[Cron Executor] ✓ 翻译完成: ${translatedCount} 篇`)

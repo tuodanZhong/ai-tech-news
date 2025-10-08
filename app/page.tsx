@@ -30,8 +30,6 @@ export default function Home() {
   const [source, setSource] = useState('all')
   const [search, setSearch] = useState('')
   const [sources, setSources] = useState<string[]>(['all'])
-  const [fetching, setFetching] = useState(false)
-  const [fetchResult, setFetchResult] = useState<string>('')
   const [lastFetchTime, setLastFetchTime] = useState<string>('')
   const [inputPage, setInputPage] = useState<string>('1')
   const [hotTopics48h, setHotTopics48h] = useState<any[]>([])
@@ -143,37 +141,6 @@ export default function Home() {
     fetchArticles()
   }
 
-  const handleFetchRSS = async () => {
-    setFetching(true)
-    setFetchResult('')
-    try {
-      // 调用定时任务 API，执行完整流程：采集 → 翻译 → 热点分析
-      const res = await fetch('/api/cron-job')
-      const data = await res.json()
-
-      if (data.success) {
-        const summary = data.summary
-        setFetchResult(
-          `执行成功！采集 ${summary.articlesCollected} 篇，` +
-          `翻译 ${summary.articlesTranslated} 篇，` +
-          `48h热点 ${summary.hotTopics48h} 个，` +
-          `24h热点 ${summary.hotTopics24h} 个`
-        )
-        // 刷新所有数据
-        fetchArticles()
-        fetchSources()
-        fetchLastFetchTime()
-        fetchHotTopics() // 刷新热点话题
-      } else {
-        setFetchResult('执行失败：' + data.error)
-      }
-    } catch (error) {
-      setFetchResult('执行失败：' + (error instanceof Error ? error.message : '未知错误'))
-    } finally {
-      setFetching(false)
-    }
-  }
-
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -237,24 +204,8 @@ export default function Home() {
                   {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
                 </span>
               )}
-              <button
-                onClick={handleFetchRSS}
-                disabled={fetching}
-                className="px-4 py-1.5 bg-white text-slate-700 text-xs font-medium rounded hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-              >
-                {fetching ? '执行中...' : '执行定时任务'}
-              </button>
             </div>
           </div>
-          {fetchResult && (
-            <div className={`mt-2 p-2 text-xs rounded ${
-              fetchResult.includes('成功')
-                ? 'bg-green-100 text-green-900'
-                : 'bg-red-100 text-red-900'
-            }`}>
-              {fetchResult}
-            </div>
-          )}
         </div>
       </header>
 

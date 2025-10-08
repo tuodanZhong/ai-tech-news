@@ -3,6 +3,9 @@ import { saveScrapedArticles, type ScrapedArticle } from '@/lib/playwright-scrap
 
 export async function POST() {
   try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
+
     // 使用 Firecrawl 抓取（绕过反爬虫）
     const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
@@ -16,8 +19,11 @@ export async function POST() {
         waitFor: 3000,
         mobile: false,
         skipTlsVerification: false
-      })
+      }),
+      signal: controller.signal
     })
+
+    clearTimeout(timeoutId)
 
     if (!firecrawlResponse.ok) {
       const errorData = await firecrawlResponse.json()

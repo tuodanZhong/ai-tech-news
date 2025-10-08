@@ -17,9 +17,15 @@ export async function GET() {
     // 2. 抓取 Bloomberg（使用网页抓取）
     let bloombergResult = { feed: 'Bloomberg Technology', count: 0, error: null as string | null }
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
+
       const bloombergResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/scrape-bloomberg`, {
-        method: 'POST'
+        method: 'POST',
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
       const bloombergData = await bloombergResponse.json()
 
       if (bloombergData.success) {
@@ -38,9 +44,15 @@ export async function GET() {
     // 4. 去重处理
     let deduplicateResult = { deleted: 0, error: null as string | null }
     try {
+      const controller2 = new AbortController()
+      const timeoutId2 = setTimeout(() => controller2.abort(), 5000) // 5秒超时
+
       const deduplicateResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/deduplicate`, {
-        method: 'POST'
+        method: 'POST',
+        signal: controller2.signal
       })
+
+      clearTimeout(timeoutId2)
       const deduplicateData = await deduplicateResponse.json()
 
       if (deduplicateData.success) {

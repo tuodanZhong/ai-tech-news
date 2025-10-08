@@ -4,11 +4,17 @@ import * as cheerio from 'cheerio'
 
 export async function POST() {
   try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
+
     const response = await fetch('https://www.bloomberg.com/technology', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
+      },
+      signal: controller.signal
     })
+
+    clearTimeout(timeoutId)
     const html = await response.text()
     const $ = cheerio.load(html)
 
