@@ -139,10 +139,8 @@ ${articleList.map(a => `${a.index}. [${a.source}] ${a.title}`).join('\n')}
     if (!response.ok) {
       console.error('[过滤器] DeepSeek API 调用失败:', response.statusText)
       return {
-        relevantIds: articleIds,
-        irrelevantIds: [],
-        total: articles.length,
-        filtered: 0
+        relevantIds: articles.map(a => a.id),
+        irrelevantIds: []
       }
     }
 
@@ -152,10 +150,8 @@ ${articleList.map(a => `${a.index}. [${a.source}] ${a.title}`).join('\n')}
     if (!content) {
       console.error('[过滤器] DeepSeek 返回内容为空')
       return {
-        relevantIds: articleIds,
-        irrelevantIds: [],
-        total: articles.length,
-        filtered: 0
+        relevantIds: articles.map(a => a.id),
+        irrelevantIds: []
       }
     }
 
