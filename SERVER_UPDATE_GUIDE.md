@@ -70,7 +70,8 @@ git pull origin main
 
 ### 步骤 5: 安装/更新依赖
 ```bash
-npm install --production
+# 注意：不要使用 --production，因为构建需要 devDependencies
+npm install
 ```
 
 ### 步骤 6: 生成 Prisma Client
@@ -147,7 +148,7 @@ npm cache clean --force
 
 # 删除 node_modules 重新安装
 rm -rf node_modules
-npm install --production
+npm install
 ```
 
 ### 问题 3: 构建失败
@@ -243,7 +244,7 @@ pm2 monit
 # 方法 1: 使用 Git 回滚
 cd ~/tech-news
 git reset --hard fba56a8  # 回到上一个稳定版本
-npm install --production
+npm install
 npm run build
 pm2 restart tech-news
 
