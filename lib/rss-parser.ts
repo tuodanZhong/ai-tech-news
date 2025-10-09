@@ -3,9 +3,9 @@ import { prisma } from './db'
 import { translateToChinese } from './translator'
 
 const parser = new Parser({
-  timeout: 5000, // 5秒超时
+  timeout: 15000, // 15秒超时 (OpenAI Blog 等源需要更长时间)
   requestOptions: {
-    timeout: 5000
+    timeout: 15000
   }
 })
 
@@ -144,9 +144,30 @@ export async function fetchRSSFeed(feedUrl: string, sourceName: string, category
 }
 
 export async function fetchAllFeeds() {
+  // 从数据库获取已激活且测试成功的 RSS 信息源
+  const activeSources = await prisma.rSSSource.findMany({
+    where: {
+      isActive: true,
+      isTested: true,
+      testStatus: 'success',
+      type: 'rss' // 只获取 RSS 类型的源
+    }
+  })
+
+  // 如果数据库中没有激活的源，使用默认的硬编码源作为后备
+  const feedsToFetch = activeSources.length > 0
+    ? activeSources.map(source => ({
+        name: source.name,
+        url: source.url,
+        category: source.category
+      }))
+    : RSS_FEEDS
+
+  console.log(`[RSS] 准备抓取 ${feedsToFetch.length} 个信息源 (${activeSources.length > 0 ? '来自数据库' : '使用默认配置'})`)
+
   // 并行抓取所有 RSS 源，提升性能
   const results = await Promise.all(
-    RSS_FEEDS.map(async (feed) => {
+    feedsToFetch.map(async (feed) => {
       const articles = await fetchRSSFeed(feed.url, feed.name, feed.category)
       return { feed: feed.name, count: articles.length }
     })

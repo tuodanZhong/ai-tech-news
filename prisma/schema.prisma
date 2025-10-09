@@ -34,14 +34,24 @@ model Article {
 }
 
 model RSSSource {
-  id          String   @id @default(uuid())
-  name        String
-  url         String   @unique
-  category    String
-  isActive    Boolean  @default(true)
-  lastFetched DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  name         String
+  url          String   @unique
+  category     String
+  type         String   @default("rss")  // "rss" | "web"
+  isActive     Boolean  @default(false)  // 默认禁用,测试通过后才启用
+  isTested     Boolean  @default(false)  // 是否已测试通过
+  testStatus   String?  // "pending" | "success" | "failed"
+  testResult   String?  // 测试结果(JSON格式)
+  lastTested   DateTime? // 最后测试时间
+  lastFetched  DateTime? // 最后采集时间
+  scrapeConfig String?  // 网页抓取配置(JSON格式,用于 web 类型)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([isTested])
+  @@index([type])
 }
 
 model HotTopic {

@@ -1,4 +1,4 @@
-import { fetchAllFeeds } from './rss-parser'
+import { collectAllActiveSources } from './unified-collector'
 import { filterIrrelevantArticles } from './content-filter'
 import { analyzeHotTopicsV2 } from './trending-analyzer-v2'
 import { prisma } from './db'
@@ -46,10 +46,17 @@ export async function executeCronJob(): Promise<CronJobResult> {
     })
     const beforeIds = new Set(beforeArticles.map(a => a.id))
 
-    // 抓取所有 RSS 源
-    const rssResults = await fetchAllFeeds()
-    const totalArticles = rssResults.reduce((sum, r) => sum + r.count, 0)
+    // 使用统一采集器抓取所有激活的信息源（RSS + Web）
+    const collectionResults = await collectAllActiveSources()
+    const totalArticles = collectionResults.reduce((sum, r) => sum + r.count, 0)
+
+    // 打印详细结果
     console.log(`[Cron Executor] ✓ 采集完成: ${totalArticles} 篇文章`)
+    collectionResults.forEach(r => {
+      if (r.count > 0) {
+        console.log(`  - ${r.source} (${r.type}): ${r.count} 篇`)
+      }
+    })
 
     // 2. 智能过滤不相关内容
     console.log('[Cron Executor] 步骤 2/4: 过滤不相关内容')
