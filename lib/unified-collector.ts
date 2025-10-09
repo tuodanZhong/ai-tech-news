@@ -7,8 +7,23 @@ const parser = new Parser({
   timeout: 15000,
   requestOptions: {
     timeout: 15000
+  },
+  customFields: {
+    item: ['content:encoded', 'content', 'description']
   }
 })
+
+/**
+ * 清理 XML 内容中的无效字符
+ */
+function sanitizeXML(xmlString: string): string {
+  // 修复常见的无效 XML 实体
+  return xmlString
+    // 修复未转义的 & 符号（但保留已转义的实体如 &amp; &lt; 等）
+    .replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;')
+    // 移除控制字符（除了换行、回车、制表符）
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+}
 
 /**
  * 从 HTML 片段中提取发布日期
@@ -132,7 +147,24 @@ function extractArticlesFromHTML(html: string, baseUrl: string, config?: WebScra
  */
 async function collectFromRSS(url: string, sourceName: string, category: string) {
   try {
-    const feed = await parser.parseURL(url)
+    // 先获取原始 XML 内容
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; TechNewsBot/1.0)'
+      },
+      signal: AbortSignal.timeout(15000)
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const xmlText = await response.text()
+    // 清理 XML 内容
+    const sanitizedXML = sanitizeXML(xmlText)
+
+    // 解析清理后的 XML
+    const feed = await parser.parseString(sanitizedXML)
     const articles: any[] = []
 
     const limitedItems = feed.items.slice(0, 50)
