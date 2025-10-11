@@ -47,3 +47,6 @@ next-env.d.ts
 *.swp
 *.swo
 *~
+
+# Playwright MCP 临时文件
+.playwright-mcp/
