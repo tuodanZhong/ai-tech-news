@@ -87,3 +87,30 @@ model FilteredArticle {
   @@index([link])
   @@index([filteredAt])
 }
+
+model PromptConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique  // 唯一标识: "rss_analysis", "content_filter", "trending_analysis"
+  name        String              // 显示名称: "RSS源智能分析", "内容智能过滤", "热点话题分析"
+  description String              // 功能描述
+
+  // 可编辑部分（用户可修改）
+  systemPrompt String             // System 提示词（智能体描述）
+
+  // 只读部分（用户不可修改，由系统管理）
+  userPromptTemplate String @db.Text  // User 提示词模板（包含变量占位符）
+  outputFormat       String @db.Text  // 输出格式说明（JSON schema）
+
+  // 配置参数（只读）
+  temperature     Float?             // 温度参数
+  useJsonMode     Boolean @default(false)  // 是否使用 JSON 模式
+
+  // 元数据
+  version     Int      @default(1)  // 版本号
+  isActive    Boolean  @default(true)  // 是否启用
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+  @@index([isActive])
+}

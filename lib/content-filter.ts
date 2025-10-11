@@ -1,4 +1,5 @@
 import { prisma } from './db'
+import { loadPrompt, renderPrompt } from './prompt-loader'
 
 interface FilterResult {
   relevantIds: string[]
@@ -81,59 +82,53 @@ async function filterBatch(articles: any[]): Promise<{ relevantIds: string[], ir
     link: article.link
   }))
 
-  const prompt = `你是一个科技新闻过滤专家。请根据**文章主题**判断是否相关，而不是仅看关键词。
+  // 从数据库加载提示词配置
+  const promptConfig = await loadPrompt('content_filter')
 
-**保留标准（满足任一即保留）：**
-- AI/人工智能相关（包括AI产品、AI应用、AI公司）
-- 科技公司/互联网公司的产品、业务、战略、投资
-- 技术、编程、开发相关
-- 科技产品报道（即使提到价格、销售，只要主题是科技产品就保留）
-- 商业投资新闻（科技/互联网领域的投资、并购、股票）
-- 自然科学研究
+  // 如果加载失败,保留所有文章 (向后兼容)
+  if (!promptConfig) {
+    console.warn('[过滤器] 提示词配置未找到,保留所有文章')
+    return {
+      relevantIds: articles.map(a => a.id),
+      irrelevantIds: []
+    }
+  }
 
-**删除标准（主题必须是以下内容才删除）：**
-- 纯电商促销广告（双11、618、限时秒杀等）
-- 旅游出行数据（客运量、旅客人次、假期出游）
-- 影视娱乐消费（票房、演唱会、综艺）
-- 传统零售、餐饮、时尚（非科技类）
-- 体育、政治、社会新闻
-
-**重要：不要因为出现"价格"、"买"、"卖"等词就删除，要看主题！**
-- ✅ "AI产品售价700美金" - 主题是AI产品，保留
-- ✅ "巴菲特减持科技股" - 主题是投资，保留
-- ❌ "飞猪国庆客单价提升" - 主题是旅游消费，删除
-
-新闻列表：
-${articleList.map(a => `${a.index}. [${a.source}] ${a.title}`).join('\n')}
-
-请以 JSON 格式返回：
-{
-  "irrelevant": [需要过滤的文章索引数组],
-  "reasoning": "简要说明过滤理由"
-}`
+  // 渲染提示词模板 (替换变量)
+  const userPrompt = renderPrompt(promptConfig.userPromptTemplate, {
+    articleList: articleList.map(a => `${a.index}. [${a.source}] ${a.title}`).join('\n')
+  })
 
   try {
+    const requestBody: any = {
+      model: 'deepseek-chat',
+      messages: [
+        {
+          role: 'system',
+          content: promptConfig.systemPrompt
+        },
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ]
+    }
+
+    // 添加可选参数
+    if (promptConfig.temperature !== undefined) {
+      requestBody.temperature = promptConfig.temperature
+    }
+    if (promptConfig.useJsonMode) {
+      requestBody.response_format = { type: 'json_object' }
+    }
+
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          {
-            role: 'system',
-            content: '你是一个科技新闻过滤专家，精通识别科技、AI、互联网和商业相关内容。'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
-      })
+      body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
