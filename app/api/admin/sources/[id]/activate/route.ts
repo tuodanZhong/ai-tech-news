@@ -2,12 +2,18 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { verifyAdminAuth, unauthorizedResponse } from '@/lib/auth'
 
 // POST - 激活或停用信息源
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  // 验证管理员权限
+  if (!verifyAdminAuth(req)) {
+    return unauthorizedResponse()
+  }
+
   try {
     const { id } = await context.params
     const body = await req.json()

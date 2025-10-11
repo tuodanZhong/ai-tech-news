@@ -1,5 +1,6 @@
 import { prisma } from './db'
 import { getDeepSeekClient } from './deepseek-client'
+import { loadPrompt, renderPrompt } from './prompt-loader'
 
 export interface HotTopic {
   id: string
@@ -70,29 +71,20 @@ export async function analyzeHotTopicsV2(hours: number = 48): Promise<HotTopic[]
     return `[${index}] ${article.source} | ${title}`
   }).join('\n')
 
-  // 3. 构造 Prompt
-  const prompt = `你是一个新闻分析专家，请分析以下新闻标题，找出最近${hours}小时内的热点话题。
+  // 3. 从数据库加载提示词配置
+  const promptConfig = await loadPrompt('trending_analysis')
 
-规则：
-1. 只返回被多个来源（≥2个）报道的话题
-2. 将同一事件的不同报道聚合在一起
-3. 识别语义相似的标题（如"AMD股价飙升"和"AMD爆炸性反弹"是同一话题）
-4. 按讨论热度排序（来源数量 × 报道数量）
-5. 只返回前 15 个最热话题
+  // 如果加载失败,返回空数组 (向后兼容)
+  if (!promptConfig) {
+    console.warn('[热点分析V2] 提示词配置未找到,跳过分析')
+    return []
+  }
 
-新闻列表：
-${articleList}
-
-请返回 JSON 格式（只返回 JSON，不要任何其他文字）：
-{
-  "hotTopics": [
-    {
-      "topic": "话题摘要（10-20字）",
-      "articleIndexes": [0, 5, 12],
-      "sources": ["TechCrunch", "The Verge"]
-    }
-  ]
-}`
+  // 渲染提示词模板 (替换变量)
+  const userPrompt = renderPrompt(promptConfig.userPromptTemplate, {
+    hours: hours.toString(),
+    articleList: articleList
+  })
 
   // 4. 调用 LLM
   const deepseek = getDeepSeekClient()
@@ -104,11 +96,11 @@ ${articleList}
     const response = await deepseek.chat([
       {
         role: 'system',
-        content: '你是一个专业的新闻分析专家，擅长识别热点话题和聚合相似新闻。'
+        content: promptConfig.systemPrompt
       },
       {
         role: 'user',
-        content: prompt
+        content: userPrompt
       }
     ])
 

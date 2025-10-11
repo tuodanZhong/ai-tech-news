@@ -3,8 +3,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { testRSSFeed, testWebScrape } from '@/lib/sources/testers'
 import type { SourceType, WebScrapeConfig } from '@/lib/sources/types'
+import { verifyAdminAuth, unauthorizedResponse } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
+  // 验证管理员权限
+  if (!verifyAdminAuth(req)) {
+    return unauthorizedResponse()
+  }
+
   try {
     const body = await req.json()
     const { url, type, scrapeConfig } = body as {

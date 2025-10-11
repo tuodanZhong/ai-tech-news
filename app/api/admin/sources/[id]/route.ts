@@ -3,12 +3,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { SourceType } from '@/lib/sources/types'
+import { verifyAdminAuth, unauthorizedResponse } from '@/lib/auth'
 
 // GET - 获取单个信息源
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  // 验证管理员权限
+  if (!verifyAdminAuth(req)) {
+    return unauthorizedResponse()
+  }
   try {
     const { id } = await context.params
 
@@ -48,6 +53,11 @@ export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  // 验证管理员权限
+  if (!verifyAdminAuth(req)) {
+    return unauthorizedResponse()
+  }
+
   try {
     const { id } = await context.params
     const body = await req.json()
@@ -163,6 +173,11 @@ export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  // 验证管理员权限
+  if (!verifyAdminAuth(req)) {
+    return unauthorizedResponse()
+  }
+
   try {
     const { id } = await context.params
 

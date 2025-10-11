@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { SourceType, TestStatus } from '@/lib/sources/types'
 import SmartAddSourceWizard from '@/components/admin/SmartAddSourceWizard'
+import AdminAuthGuard from '@/components/AdminAuthGuard'
 
 interface Source {
   id: string
@@ -239,8 +240,9 @@ export default function SourceManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
+    <AdminAuthGuard>
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-7xl mx-auto">
         {/* 页面头部 */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">信息源管理</h1>
@@ -868,7 +870,18 @@ export default function SourceManagementPage() {
             loadSources()
           }}
         />
+
+        {/* 返回按钮 */}
+        <div className="mt-8">
+          <a
+            href="/admin"
+            className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+          >
+            ← 返回后台管理中心
+          </a>
+        </div>
+        </div>
       </div>
-    </div>
+    </AdminAuthGuard>
   )
 }

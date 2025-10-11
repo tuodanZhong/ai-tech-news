@@ -2,8 +2,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { detectSourceType } from '@/lib/sources/detector'
+import { verifyAdminAuth, unauthorizedResponse } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
+  // 验证管理员权限
+  if (!verifyAdminAuth(req)) {
+    return unauthorizedResponse()
+  }
+
   try {
     const { url } = await req.json()
 
