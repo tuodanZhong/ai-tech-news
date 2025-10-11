@@ -22,9 +22,10 @@ export async function POST(request: NextRequest) {
       // 设置cookie (30天过期)
       response.cookies.set('admin_token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: false, // 如果使用 HTTP，设置为 false；HTTPS 时设置为 true
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30 // 30天
+        maxAge: 60 * 60 * 24 * 30, // 30天
+        path: '/' // 确保在整个域名下都可以访问
       })
 
       return response
