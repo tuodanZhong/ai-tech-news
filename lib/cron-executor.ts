@@ -12,7 +12,7 @@ interface CronJobResult {
   summary: {
     articlesCollected: number
     articlesTranslated: number
-    hotTopics48h: number
+    hotTopics12h: number
     hotTopics24h: number
   }
   timestamp: string
@@ -142,21 +142,21 @@ export async function executeCronJob(): Promise<CronJobResult> {
     // 4. 分析热点话题
     console.log('[Cron Executor] 步骤 4/4: 分析热点话题')
 
-    // 48小时热点
-    console.log('[Cron Executor] 分析48小时热点...')
-    const hotTopics48h = await analyzeHotTopicsV2(48)
+    // 12小时热点
+    console.log('[Cron Executor] 分析12小时热点...')
+    const hotTopics12h = await analyzeHotTopicsV2(12)
 
-    // 删除旧的48小时热点
+    // 删除旧的12小时热点
     await prisma.hotTopic.deleteMany({
-      where: { type: '48h' }
+      where: { type: '12h' }
     })
 
-    // 保存新的48小时热点
+    // 保存新的12小时热点
     await Promise.all(
-      hotTopics48h.map((topic: any) =>
+      hotTopics12h.map((topic: any) =>
         prisma.hotTopic.create({
           data: {
-            type: '48h',
+            type: '12h',
             title: topic.title,
             discussionCount: topic.discussionCount,
             sources: JSON.stringify(topic.sources),
@@ -166,7 +166,7 @@ export async function executeCronJob(): Promise<CronJobResult> {
         })
       )
     )
-    console.log(`[Cron Executor] ✓ 48小时热点分析完成: ${hotTopics48h.length} 个`)
+    console.log(`[Cron Executor] ✓ 12小时热点分析完成: ${hotTopics12h.length} 个`)
 
     // 24小时热点
     console.log('[Cron Executor] 分析24小时热点...')
@@ -204,7 +204,7 @@ export async function executeCronJob(): Promise<CronJobResult> {
       summary: {
         articlesCollected: totalArticles,
         articlesTranslated: translatedCount,
-        hotTopics48h: hotTopics48h.length,
+        hotTopics12h: hotTopics12h.length,
         hotTopics24h: hotTopics24h.length,
       },
       timestamp: new Date().toISOString()
@@ -221,7 +221,7 @@ export async function executeCronJob(): Promise<CronJobResult> {
       summary: {
         articlesCollected: 0,
         articlesTranslated: 0,
-        hotTopics48h: 0,
+        hotTopics12h: 0,
         hotTopics24h: 0,
       },
       timestamp: new Date().toISOString()

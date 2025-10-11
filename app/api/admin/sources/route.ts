@@ -99,7 +99,10 @@ export async function POST(req: NextRequest) {
 
     if (existing) {
       return NextResponse.json(
-        { error: 'Source with this URL already exists' },
+        {
+          success: false,
+          error: '该信息源已存在，URL 重复'
+        },
         { status: 409 }
       )
     }

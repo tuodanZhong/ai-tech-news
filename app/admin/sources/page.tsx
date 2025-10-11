@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { SourceType, TestStatus } from '@/lib/sources/types'
+import SmartAddSourceWizard from '@/components/admin/SmartAddSourceWizard'
 
 interface Source {
   id: string
@@ -24,8 +25,9 @@ export default function SourceManagementPage() {
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'active' | 'tested' | 'untested'>('all')
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [showSmartWizard, setShowSmartWizard] = useState(false)
   const [editingSource, setEditingSource] = useState<Source | null>(null)
+  const [showEditForm, setShowEditForm] = useState(false)
   const [testingSourceId, setTestingSourceId] = useState<string | null>(null)
   const [testResultModal, setTestResultModal] = useState<{
     show: boolean
@@ -210,8 +212,8 @@ export default function SourceManagementPage() {
       const data = await response.json()
 
       if (data.success) {
-        alert(editingSource ? '更新成功' : '创建成功')
-        setShowAddForm(false)
+        alert('更新成功')
+        setShowEditForm(false)
         setEditingSource(null)
         setFormData({ name: '', url: '', category: '', type: 'rss' })
         loadSources()
@@ -233,7 +235,7 @@ export default function SourceManagementPage() {
       category: source.category,
       type: source.type
     })
-    setShowAddForm(true)
+    setShowEditForm(true)
   }
 
   return (
@@ -274,19 +276,15 @@ export default function SourceManagementPage() {
             </button>
           </div>
           <button
-            onClick={() => {
-              setShowAddForm(true)
-              setEditingSource(null)
-              setFormData({ name: '', url: '', category: '', type: 'rss' })
-            }}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            onClick={() => setShowSmartWizard(true)}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm font-medium"
           >
             ➕ 添加信息源
           </button>
         </div>
 
-        {/* 添加/编辑表单 */}
-        {showAddForm && (
+        {/* 编辑表单 */}
+        {showEditForm && editingSource && (
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4">{editingSource ? '编辑信息源' : '添加新信息源'}</h2>
             <form onSubmit={handleSubmit}>
@@ -338,7 +336,7 @@ export default function SourceManagementPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAddForm(false)
+                    setShowEditForm(false)
                     setEditingSource(null)
                     setFormData({ name: '', url: '', category: '', type: 'rss' })
                   }}
@@ -861,6 +859,15 @@ export default function SourceManagementPage() {
             </div>
           </div>
         )}
+
+        {/* 智能添加向导 */}
+        <SmartAddSourceWizard
+          isOpen={showSmartWizard}
+          onClose={() => setShowSmartWizard(false)}
+          onSuccess={() => {
+            loadSources()
+          }}
+        />
       </div>
     </div>
   )

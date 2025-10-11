@@ -10,12 +10,12 @@ export async function GET(request: Request) {
     // 如果不是强制刷新，先尝试从数据库读取
     if (!forceRefresh) {
       const hotTopics = await prisma.hotTopic.findMany({
-        where: { type: '48h' },
+        where: { type: '12h' },
         orderBy: { score: 'desc' }
       })
 
       if (hotTopics.length > 0) {
-        console.log('[API] 从数据库返回48小时热点话题')
+        console.log('[API] 从数据库返回12小时热点话题')
 
         // 获取关联的文章信息
         const topicsWithArticles = await Promise.all(
@@ -57,12 +57,12 @@ export async function GET(request: Request) {
       }
     }
 
-    console.log('[API] 开始分析48小时热点话题（V2版本）...')
-    const hotTopics = await analyzeHotTopicsV2(48)
+    console.log('[API] 开始分析12小时热点话题（V2版本）...')
+    const hotTopics = await analyzeHotTopicsV2(12)
 
     // 删除旧的热点
     await prisma.hotTopic.deleteMany({
-      where: { type: '48h' }
+      where: { type: '12h' }
     })
 
     // 保存新的热点到数据库
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
       hotTopics.map((topic: any) =>
         prisma.hotTopic.create({
           data: {
-            type: '48h',
+            type: '12h',
             title: topic.title,
             discussionCount: topic.discussionCount,
             sources: JSON.stringify(topic.sources),
@@ -81,7 +81,7 @@ export async function GET(request: Request) {
       )
     )
 
-    console.log(`[API] 成功分析并保存 ${hotTopics.length} 个48小时热点话题`)
+    console.log(`[API] 成功分析并保存 ${hotTopics.length} 个12小时热点话题`)
 
     return NextResponse.json({
       success: true,

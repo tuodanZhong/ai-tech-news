@@ -32,13 +32,13 @@ export default function Home() {
   const [sources, setSources] = useState<string[]>(['all'])
   const [lastFetchTime, setLastFetchTime] = useState<string>('')
   const [inputPage, setInputPage] = useState<string>('1')
-  const [hotTopics48h, setHotTopics48h] = useState<any[]>([])
+  const [hotTopics12h, setHotTopics12h] = useState<any[]>([])
   const [hotTopics24h, setHotTopics24h] = useState<any[]>([])
-  const [hotTopics48hUpdatedAt, setHotTopics48hUpdatedAt] = useState<string>('')
+  const [hotTopics12hUpdatedAt, setHotTopics12hUpdatedAt] = useState<string>('')
   const [hotTopics24hUpdatedAt, setHotTopics24hUpdatedAt] = useState<string>('')
   const [selectedTopic, setSelectedTopic] = useState<any>(null)
   const [showModal, setShowModal] = useState(false)
-  const [mobileHotTopicTab, setMobileHotTopicTab] = useState<'48h' | '24h'>('48h')
+  const [mobileHotTopicTab, setMobileHotTopicTab] = useState<'12h' | '24h'>('12h')
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 20,
@@ -88,18 +88,18 @@ export default function Home() {
   const fetchHotTopics = async (forceRefresh = false) => {
     try {
       const refreshParam = forceRefresh ? '?refresh=true' : ''
-      const [res48h, res24h] = await Promise.all([
+      const [res12h, res24h] = await Promise.all([
         fetch(`/api/hot-topics${refreshParam}`),
         fetch(`/api/hot-topics-24h${refreshParam}`)
       ])
 
-      const data48h = await res48h.json()
+      const data12h = await res12h.json()
       const data24h = await res24h.json()
 
-      if (data48h.success && data48h.topics) {
-        setHotTopics48h(data48h.topics)
-        if (data48h.updatedAt) {
-          setHotTopics48hUpdatedAt(data48h.updatedAt)
+      if (data12h.success && data12h.topics) {
+        setHotTopics12h(data12h.topics)
+        if (data12h.updatedAt) {
+          setHotTopics12hUpdatedAt(data12h.updatedAt)
         }
       }
 
@@ -227,14 +227,14 @@ export default function Home() {
             {/* 标签页切换 */}
             <div className="flex border-b border-gray-200">
               <button
-                onClick={() => setMobileHotTopicTab('48h')}
+                onClick={() => setMobileHotTopicTab('12h')}
                 className={`flex-1 px-4 py-3 text-sm font-bold transition-colors ${
-                  mobileHotTopicTab === '48h'
+                  mobileHotTopicTab === '12h'
                     ? 'bg-slate-600 text-white'
                     : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                48小时热点
+                12小时热点
               </button>
               <button
                 onClick={() => setMobileHotTopicTab('24h')}
@@ -250,24 +250,24 @@ export default function Home() {
 
             {/* 内容区域 */}
             <div className="p-4">
-              {mobileHotTopicTab === '48h' && (
+              {mobileHotTopicTab === '12h' && (
                 <>
-                  {hotTopics48hUpdatedAt && (
+                  {hotTopics12hUpdatedAt && (
                     <p className="text-xs text-gray-500 mb-3">
-                      更新于: {formatUpdateTime(hotTopics48hUpdatedAt)}
+                      更新于: {formatUpdateTime(hotTopics12hUpdatedAt)}
                     </p>
                   )}
                   <div className="space-y-4">
-                    {hotTopics48h.length === 0 ? (
+                    {hotTopics12h.length === 0 ? (
                       <div className="text-xs text-gray-500 text-center py-4">
                         加载中...
                       </div>
                     ) : (
-                      hotTopics48h.slice(0, 10).map((topic, index) => (
+                      hotTopics12h.slice(0, 10).map((topic, index) => (
                         <button
                           key={topic.id}
                           onClick={() => handleTopicClick(topic)}
-                          className={`w-full text-left pb-4 hover:bg-slate-50 -mx-4 px-4 rounded transition-colors ${index !== Math.min(hotTopics48h.length, 10) - 1 ? 'border-b border-gray-200' : ''}`}
+                          className={`w-full text-left pb-4 hover:bg-slate-50 -mx-4 px-4 rounded transition-colors ${index !== Math.min(hotTopics12h.length, 10) - 1 ? 'border-b border-gray-200' : ''}`}
                         >
                           <h4 className="font-medium text-gray-900 hover:text-slate-600 leading-snug mb-2 text-sm transition-colors">
                             {topic.title}
@@ -435,32 +435,32 @@ export default function Home() {
         )}
           </div>
 
-          {/* 48小时热点板块 */}
+          {/* 12小时热点板块 */}
           <aside className="w-80 flex-shrink-0 hidden lg:block">
             <div className="sticky top-24">
               <div className="bg-white border border-gray-200 rounded shadow-sm overflow-hidden">
                 <div className="bg-slate-600 px-4 py-3">
                   <h3 className="text-sm font-bold text-white mb-1">
-                    48小时热点资讯
+                    12小时热点资讯
                   </h3>
-                  {hotTopics48hUpdatedAt && (
+                  {hotTopics12hUpdatedAt && (
                     <p className="text-xs text-slate-200">
-                      更新于: {formatUpdateTime(hotTopics48hUpdatedAt)}
+                      更新于: {formatUpdateTime(hotTopics12hUpdatedAt)}
                     </p>
                   )}
                 </div>
 
                 <div className="p-4 space-y-4 max-h-[calc(100vh-10rem)] overflow-y-auto">
-                  {hotTopics48h.length === 0 ? (
+                  {hotTopics12h.length === 0 ? (
                     <div className="text-xs text-gray-500 text-center py-4">
                       加载中...
                     </div>
                   ) : (
-                    hotTopics48h.map((topic, index) => (
+                    hotTopics12h.map((topic, index) => (
                       <button
                         key={topic.id}
                         onClick={() => handleTopicClick(topic)}
-                        className={`w-full text-left pb-4 hover:bg-slate-50 -mx-4 px-4 rounded transition-colors ${index !== hotTopics48h.length - 1 ? 'border-b border-gray-200' : ''}`}
+                        className={`w-full text-left pb-4 hover:bg-slate-50 -mx-4 px-4 rounded transition-colors ${index !== hotTopics12h.length - 1 ? 'border-b border-gray-200' : ''}`}
                       >
                         <h4 className="font-medium text-gray-900 hover:text-slate-600 leading-snug mb-2 text-sm transition-colors">
                           {topic.title}

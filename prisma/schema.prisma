@@ -46,17 +46,24 @@ model RSSSource {
   lastTested   DateTime? // 最后测试时间
   lastFetched  DateTime? // 最后采集时间
   scrapeConfig String?  // 网页抓取配置(JSON格式,用于 web 类型)
+
+  // 智能RSS发现相关字段
+  feedType     String?  @default("unknown") // "specific" | "general" | "unknown"
+  websiteUrl   String?  // 网站主页 URL (用于识别同一网站)
+  aiAnalysis   String?  // AI 分析结果 JSON (存储完整分析)
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([isActive])
   @@index([isTested])
   @@index([type])
+  @@index([feedType])
 }
 
 model HotTopic {
   id              String   @id @default(uuid())
-  type            String   // "24h" or "48h"
+  type            String   // "12h" or "24h"
   title           String
   discussionCount Int
   sources         String   // JSON array of source names
