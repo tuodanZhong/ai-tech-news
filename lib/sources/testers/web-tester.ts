@@ -197,7 +197,7 @@ export async function testWebScrape(
     // 使用简单的 fetch 获取网页内容
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TechNewsBot/1.0)'
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
       signal: AbortSignal.timeout(10000)
     })

@@ -2,6 +2,7 @@
 import Parser from 'rss-parser'
 import { findRSSInPage } from './detector'
 import * as iconv from 'iconv-lite'
+import { loadPrompt, renderPrompt } from '../prompt-loader'
 
 const parser = new Parser({
   timeout: 10000,
@@ -203,7 +204,7 @@ async function fetchAndConvertRSS(feedUrl: string): Promise<string> {
   try {
     const response = await fetch(feedUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TechNewsBot/1.0)'
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     })
 
@@ -284,56 +285,52 @@ export async function analyzeRSSContentWithAI(
     console.log(`[分析] ${feedUrl}: 快速分类命中 - ${quickResult.category}`)
   }
 
-  const prompt = `你是一个RSS源分类专家。请分析以下RSS源采样的${titles.length}篇文章标题:
+  // 从数据库加载提示词配置
+  const promptConfig = await loadPrompt('rss_analysis')
 
-RSS URL: ${feedUrl}
-文章标题:
-${titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+  // 如果加载失败,使用快速分类结果或默认值 (向后兼容)
+  if (!promptConfig) {
+    console.warn('[AI分析] 提示词配置未找到,使用快速分类结果')
+    return quickResult || getDefaultAnalysis()
+  }
 
-请判断这个RSS源的特征,返回 JSON:
-
-{
-  "feedType": "specific" | "general",
-  "category": "AI" | "综合科技" | "科技产品" | "互联网/创业" | "综合新闻" | "其他",
-  "techRelevance": 0-100,
-  "aiRelevance": 0-100,
-  "confidence": 0-100,
-  "recommendation": "strongly_recommend" | "recommend" | "caution" | "not_recommend",
-  "reasoning": "简要说明判断理由 (1-2句话)"
-}
-
-说明:
-- feedType: specific=90%以上文章属于AI/科技垂直领域, general=内容覆盖多个领域
-- techRelevance: 科技/互联网相关内容占比
-- aiRelevance: AI/机器学习相关内容占比
-- recommendation:
-  * strongly_recommend: 高质量科技/AI专门板块 (techRelevance + aiRelevance > 80%)
-  * recommend: 科技媒体全站 (techRelevance + aiRelevance > 60%)
-  * caution: 综合媒体包含科技内容 (techRelevance + aiRelevance 在 30%-60% 之间)
-  * not_recommend: 非科技媒体 (techRelevance + aiRelevance < 30%)`
+  // 渲染提示词模板 (替换变量)
+  const userPrompt = renderPrompt(promptConfig.userPromptTemplate, {
+    count: titles.length,
+    feedUrl: feedUrl,
+    titles: titles.map((t, i) => `${i + 1}. ${t}`).join('\n')
+  })
 
   try {
+    const requestBody: any = {
+      model: 'deepseek-chat',
+      messages: [
+        {
+          role: 'system',
+          content: promptConfig.systemPrompt
+        },
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ]
+    }
+
+    // 添加可选参数
+    if (promptConfig.temperature !== undefined) {
+      requestBody.temperature = promptConfig.temperature
+    }
+    if (promptConfig.useJsonMode) {
+      requestBody.response_format = { type: 'json_object' }
+    }
+
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          {
-            role: 'system',
-            content: '你是一个RSS源分类专家，精通识别科技、AI、互联网内容的特征。'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
-      })
+      body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
